@@ -7,9 +7,9 @@ import TranscodingStreams
 
 abstract type RemoteResource end
 
-function Base.length(x::RemoteResource) end
+function Base.length(x::RemoteResource) error("not implemented") end
 
-function Base.getindex(x::RemoteResource, range::UnitRange{<:Integer}) end
+function Base.getindex(x::RemoteResource, range::UnitRange{<:Integer}) error("not implemented") end
 
 #### HttpResource
 
