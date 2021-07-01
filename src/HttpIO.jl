@@ -7,9 +7,9 @@ import TranscodingStreams
 
 abstract type RemoteResource end
 
-function Base.length(x::RemoteResource) error("not implemented") end
+function resc_length(x::RemoteResource) error("not implemented") end
 
-function Base.getindex(x::RemoteResource, range::UnitRange{<:Integer}) error("not implemented") end
+function resc_fetch(x::RemoteResource, range::UnitRange{<:Integer}) error("not implemented") end
 
 #### HttpResource
 
@@ -38,15 +38,15 @@ function init_resource!(resource::HttpResource)
     resource
 end
 
-function Base.length(x::HttpResource)
+function resc_length(x::HttpResource)
     @assert x.size >= 0
     x.size
 end
 
-function Base.getindex(x::HttpResource, range::UnitRange{<:Integer})
+function resc_fetch(x::HttpResource, range::UnitRange{<:Integer})
     s = first(range)
     e = last(range)
-    @assert 1 <= s <= e <= length(x)
+    @assert 1 <= s <= e <= resc_length(x)
     rangestr = "bytes=$(s-1)-$(e-1)" 
     headers = ["Range" => rangestr]
     res = HTTP.get(x.url; retry=true, redirect=false, headers=headers)
@@ -84,11 +84,11 @@ function Base.seekstart(io::RemoteResourceIO)
 end
 
 function Base.seekend(io::RemoteResourceIO)
-    seek(io, length(io))
+    seek(io, resc_length(io))
 end
 
 function Base.eof(io::RemoteResourceIO)
-    position(io) >= length(io.resource)
+    position(io) >= resc_length(io.resource)
 end
 
 function Base.close(io::RemoteResourceIO)
@@ -105,11 +105,11 @@ end
 # Each call to unsafe_read will send one http request
 function Base.unsafe_read(io::RemoteResourceIO, output::Ptr{UInt8}, nbytes::UInt)
     start = position(io) + 1
-    stop = min(start + nbytes - 1, length(io.resource))
-    having_extra = (start + nbytes - 1) > length(io.resource)
+    stop = min(start + nbytes - 1, resc_length(io.resource))
+    having_extra = (start + nbytes - 1) > resc_length(io.resource)
     # read http response
     time = @elapsed begin
-        data = io[start:stop]
+        data = resc_fetch(io, start:stop)
         @assert length(data) == (stop - start + 1)
         GC.@preserve data unsafe_copyto!(output, pointer(data), length(data))
     end
