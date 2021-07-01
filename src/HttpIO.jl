@@ -114,8 +114,7 @@ function Base.unsafe_read(io::RemoteResourceIO, output::Ptr{UInt8}, nbytes::UInt
         GC.@preserve data unsafe_copyto!(output, pointer(data), length(data))
     end
     # set offset and stat
-    new_stat = NamedTuple{(:nreq, :size, :time), Tuple{Int64, Int64, Float64}}(
-        nreq=io.stat.nreq + 1, size=io.stat.size + length(data), time=time)
+    new_stat = (nreq=io.stat.nreq + 1, size=io.stat.size + length(data), time=time)
     io.offset = io.offset + length(data)
     io.stat = new_stat
     having_extra && throw(EOFError())
