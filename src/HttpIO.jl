@@ -109,7 +109,7 @@ function Base.unsafe_read(io::RemoteResourceIO, output::Ptr{UInt8}, nbytes::UInt
     having_extra = (start + nbytes - 1) > resc_length(io.resource)
     # read http response
     time = @elapsed begin
-        data = resc_fetch(io, start:stop)
+        data = resc_fetch(io.resource, start:stop)
         @assert length(data) == (stop - start + 1)
         GC.@preserve data unsafe_copyto!(output, pointer(data), length(data))
     end
