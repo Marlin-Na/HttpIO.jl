@@ -11,6 +11,8 @@ function resc_length(x::RemoteResource) error("not implemented") end
 
 function resc_fetch(x::RemoteResource, range::UnitRange{<:Integer}) error("not implemented") end
 
+function resc_suggest_bufsize(x::RemoteResource) error("not implemented") end
+
 #### HttpResource
 
 mutable struct HttpResource <: RemoteResource
@@ -55,70 +57,117 @@ function resc_fetch(x::HttpResource, range::UnitRange{<:Integer})
     HTTP.body(res)
 end
 
+function resc_suggest_bufsize(x::HttpResource)
+    # TODO: benchmark the performance against buffer size
+    Int(1 * 1024 * 1024) # 1 MB
+end
+
 
 ######## RemoteResourceIO          #######################
 
+## The incomplete, unbuffered IO.
+## It only implements TranscodingStreams.readdata! method. TranscodingStreams.NoopStream
+## is then used to provide the buffer and related IO methods.
 
-mutable struct RemoteResourceIO{T} <: IO
+mutable struct DummyRemoteResourceIO{T} <: IO
     resource::T
     offset::Int64
-    stat::NamedTuple{(:nreq, :size, :time), Tuple{Int64, Int64, Float64}}
-    function RemoteResourceIO{T}(resource) where {T}
-        new(resource, 0, (nreq=0, size=0, time=0.0))
+    function DummyRemoteResourceIO(resource::RemoteResource)
+        new{typeof(resource)}(resource, 0)
     end
 end
 
-const HttpFileIO = RemoteResourceIO{HttpResource}
-
-function Base.position(io::RemoteResourceIO)
+function Base.position(io::DummyRemoteResourceIO)
     io.offset
 end
 
-function Base.seek(io::RemoteResourceIO, pos::Integer)
+function Base.seek(io::DummyRemoteResourceIO, pos::Integer)
     io.offset = pos
     io
 end
 
-function Base.seekstart(io::RemoteResourceIO)
+function Base.seekstart(io::DummyRemoteResourceIO)
     seek(io, 0)
 end
 
-function Base.seekend(io::RemoteResourceIO)
+function Base.seekend(io::DummyRemoteResourceIO)
     seek(io, resc_length(io))
 end
 
-function Base.eof(io::RemoteResourceIO)
+function Base.eof(io::DummyRemoteResourceIO)
     position(io) >= resc_length(io.resource)
 end
 
-function Base.close(io::RemoteResourceIO)
-    return nothing
-end
-function Base.isopen(io::RemoteResourceIO)
-    return true
-end
-
-function Base.bytesavailable(io::RemoteResourceIO)
+function Base.bytesavailable(io::DummyRemoteResourceIO)
     return 0
 end
 
-# Each call to unsafe_read will send one http request
-function Base.unsafe_read(io::RemoteResourceIO, output::Ptr{UInt8}, nbytes::UInt)
-    start = position(io) + 1
-    stop = min(start + nbytes - 1, resc_length(io.resource))
-    having_extra = (start + nbytes - 1) > resc_length(io.resource)
-    # read http response
-    time = @elapsed begin
-        data = resc_fetch(io.resource, start:stop)
-        @assert length(data) == (stop - start + 1)
-        GC.@preserve data unsafe_copyto!(output, pointer(data), length(data))
-    end
-    # set offset and stat
-    new_stat = (nreq=io.stat.nreq + 1, size=io.stat.size + length(data), time=time)
-    io.offset = io.offset + length(data)
-    io.stat = new_stat
-    having_extra && throw(EOFError())
-    return nothing
+function Base.isopen(io::DummyRemoteResourceIO)
+    true
 end
+
+function Base.close(io::DummyRemoteResourceIO)
+    nothing
+end
+
+function resc_length(x::DummyRemoteResourceIO)
+    resc_length(x.resource)
+end
+
+function resc_fetch(x::DummyRemoteResourceIO, range::UnitRange{<:Integer})
+    ### TODO: add stats
+    resc_fetch(x.resource, range)
+end
+
+function resc_suggest_bufsize(x::DummyRemoteResourceIO)
+    resc_suggest_bufsize(x.resource)
+end
+
+function TranscodingStreams.readdata!(input::DummyRemoteResourceIO, output::TranscodingStreams.Buffer)
+    ntoread::Int = min(TranscodingStreams.marginsize(output), resc_length(input) - position(input))
+    ntoread <= 0 && return 0
+    range_start = position(input) + 1
+    range_stop = position(input) + ntoread
+    data::Vector{UInt8} = resc_fetch(input, range_start:range_stop)
+    @assert length(data) == ntoread
+    GC.@preserve data output unsafe_copyto!(TranscodingStreams.marginptr(output), pointer(data), ntoread)
+    TranscodingStreams.supplied!(output, ntoread)
+    return ntoread
+end
+
+
+### The complete, buffered IO.
+
+mutable struct RemoteResourceIO{T} <: IO
+    dummy_io::DummyRemoteResourceIO{T}
+    stream::TranscodingStreams.NoopStream{DummyRemoteResourceIO{T}}
+    function RemoteResourceIO(resource::RemoteResource)
+        dummy_io = DummyRemoteResourceIO(resource)
+        stream = TranscodingStreams.TranscodingStream(TranscodingStreams.Noop(), dummy_io; bufsize = resc_suggest_bufsize(dummy_io))
+        TranscodingStreams.NoopStream(dummy_io)
+        new{typeof(resource)}(dummy_io, stream)
+    end
+    function RemoteResourceIO{T}(resource::T) where {T}
+        RemoteResourceIO(resource)
+    end
+end
+
+function Base.parent(x::RemoteResourceIO) x.stream end
+
+function Base.position(x::RemoteResourceIO) position(parent(x)) end
+function Base.read(x::RemoteResourceIO) read(parent(x)) end
+function Base.read(x::RemoteResourceIO, nb::Integer) read(parent(x), nb) end
+function Base.read(x::RemoteResourceIO, T::Type) read(parent(x), T) end
+function Base.read(x::RemoteResourceIO, T::Type{UInt8}) read(parent(x), T) end
+function Base.seek(x::RemoteResourceIO, args...; kwargs...) seek(parent(x), args...; kwargs...) end
+function Base.seekstart(x::RemoteResourceIO, args...; kwargs...) seekstart(parent(x), args...; kwargs...) end
+function Base.seekend(x::RemoteResourceIO, args...; kwargs...) seekend(parent(x), args...; kwargs...) end
+function Base.bytesavailable(x::RemoteResourceIO) bytesavailable(parent(x)) end
+function Base.eof(x::RemoteResourceIO) eof(parent(x)) end
+function Base.peek(x::RemoteResourceIO, args...; kwargs...) peek(parent(x), args...; kwargs...) end
+function Base.isopen(x::RemoteResourceIO) isopen(parent(x)) end
+function Base.close(x::RemoteResourceIO) close(parent(x)) end
+
+const HttpFileIO = RemoteResourceIO{HttpResource}
 
 end
