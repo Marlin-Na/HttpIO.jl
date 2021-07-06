@@ -14,6 +14,14 @@ struct GCSResource <: RemoteResource
     end
 end
 
+function GCSFileIO(gsurl::AbstractString)
+    RemoteResourceIO(GCSResource(gsurl))
+end
+
+function GCSFileIO(gsurl::AbstractString, client::GCSClient)
+    RemoteResourceIO(GCSResource(gsurl, client))
+end
+
 function GCSResource(client::GCSClient)
     gsurl -> GCSResource(gsurl, client)
 end
