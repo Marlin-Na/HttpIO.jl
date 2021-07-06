@@ -174,7 +174,9 @@ function Base.peek(x::RemoteResourceIO, args...; kwargs...) peek(parent(x), args
 function Base.isopen(x::RemoteResourceIO) isopen(parent(x)) end
 function Base.close(x::RemoteResourceIO) close(parent(x)) end
 
-function HttpFileIO(url)
+const HttpFileIO = RemoteResourceIO{HttpResource}
+
+function RemoteResourceIO{HttpResource}(url::AbstractString)
     RemoteResourceIO{HttpResource}(HttpResource(url))
 end
 
