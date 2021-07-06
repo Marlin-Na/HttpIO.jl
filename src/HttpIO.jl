@@ -133,6 +133,7 @@ function TranscodingStreams.readdata!(input::DummyRemoteResourceIO, output::Tran
     @assert length(data) == ntoread
     GC.@preserve data output unsafe_copyto!(TranscodingStreams.marginptr(output), pointer(data), ntoread)
     TranscodingStreams.supplied!(output, ntoread)
+    input.offset += ntoread
     return ntoread
 end
 
