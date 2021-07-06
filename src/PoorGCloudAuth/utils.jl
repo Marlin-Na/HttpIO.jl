@@ -88,6 +88,9 @@ end
 
 Obtain a new access token with refresh_token, client_id and client_secret from google api.
 """
+# FIXME: this is not done right, check
+# https://github.com/google/google-reauth-python/blob/master/google_reauth/reauth.py#L150-L199
+# https://github.com/googleapis/google-auth-library-python/blob/master/google/oauth2/credentials.py#L207-L254
 function http_reauth_access_token(;refresh_token, client_id, client_secret)
     params = [
         "client_id" => client_id,

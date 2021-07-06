@@ -158,8 +158,9 @@ function Base.parent(x::RemoteResourceIO) x.stream end
 function Base.position(x::RemoteResourceIO) position(parent(x)) end
 function Base.read(x::RemoteResourceIO) read(parent(x)) end
 function Base.read(x::RemoteResourceIO, nb::Integer) read(parent(x), nb) end
-function Base.read(x::RemoteResourceIO, T::Type) read(parent(x), T) end
+#function Base.read(x::RemoteResourceIO, T::Type) read(parent(x), T) end
 function Base.read(x::RemoteResourceIO, T::Type{UInt8}) read(parent(x), T) end
+function Base.read(x::RemoteResourceIO, T::Type{Char}) read(parent(x), T) end
 function Base.seek(x::RemoteResourceIO, args...; kwargs...) seek(parent(x), args...; kwargs...) end
 function Base.seekstart(x::RemoteResourceIO, args...; kwargs...) seekstart(parent(x), args...; kwargs...) end
 function Base.seekend(x::RemoteResourceIO, args...; kwargs...) seekend(parent(x), args...; kwargs...) end

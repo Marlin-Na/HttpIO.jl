@@ -3,20 +3,15 @@
 import .PoorGCloudAuth: GCSClient
 import .PoorGCloudAuth
 
-struct GCSResource
+struct GCSResource <: RemoteResource
     gsurl::String
     client::GCSClient
     size::Int64
     function GCSResource(gsurl, client)
-        ans = new(gsurl, client)
-        init_resource!(ans)
-        ans
+        size = PoorGCloudAuth.fetch_object_size(gsurl, client)
+        resource = new(gsurl, client, size)
+        resource
     end
-end
-
-function init_resource!(resource::GCSResource)
-    resource.size = PoorGCloudAuth.fetch_object_size(resource.gsurl, resource.client)
-    resource
 end
 
 function GCSResource(client::GCSClient)
@@ -32,7 +27,7 @@ function resc_length(x::GCSResource)
 end
 
 function resc_fetch(x::GCSResource, range::UnitRange{<:Integer})
-    PoortGCloudAuth.fetch_gcs(x, x.client; range = range)
+    PoorGCloudAuth.fetch_gcs(x.gsurl, x.client; range = range)
 end
 
 function resc_suggest_bufsize(x::GCSResource)

@@ -14,31 +14,25 @@ include("utils.jl")
 """
     AccessToken()
 
-Struct representing the access token and associated refresh token for google cloud api.
-By default it will read refresh token from ~/.config/gcloud/application_default_credentials.json
-and use it to obtain a short-lived access token.
+Obtain a short-lived access token for google cloud api with
+`gcloud auth print-access-token` command.
 """
 struct AccessToken
-    refresh_token::String
-    client_id::String
-    client_secret::String
     access_token::String
     expiry::Dates.DateTime
-    function AccessToken(refresh_token::String, client_id::String, client_secret::String, access_token::String, expiry::Dates.DateTime)
-        new(refresh_token, client_id, client_secret, access_token, expiry)
-    end
-    function AccessToken(refresh_token::String, client_id::String, client_secret::String)
-        partial = new(refresh_token, client_id, client_secret)
-        reauth(partial)
+    function AccessToken(token::AbstractString)
+        info = http_access_token_info(token)
+        expiry = Dates.now() + Dates.Second(info["expires_in"])
+        new(token, expiry)
     end
     function AccessToken()
-        cred = read_application_default_credentials()
-        AccessToken(cred["refresh_token"], cred["client_id"], cred["client_secret"])
+        token = read_access_token()
+        AccessToken(token)
     end
 end
 
 """
-Obtain a new access token from google cloud api with the refresh token.
+Obtain a new access token if needed.
 """
 reauth, reauth!
 
@@ -61,10 +55,8 @@ Obtain all meta data or object size for a google bucket object.
 fetch_object_info, fetch_object_size
 
 function reauth(token::AccessToken)
-    new = http_reauth_access_token(;refresh_token = token.refresh_token, client_id = token.client_id, client_secret = token.client_secret)
-    expiry = Dates.now() + Dates.Second(new["expires_in"])
-    access_token = new["access_token"] # also has new["scope"] and new["token_type"]
-    AccessToken(token.refresh_token, token.client_id, token.client_secret, access_token, expiry)
+    # for now, we won't use refresh_token, instead just rerunning "gcloud auth print-access-token"
+    AccessToken()
 end
 
 function expiry(token::AccessToken)
