@@ -2,6 +2,7 @@ module HttpIO
 
 import HTTP
 import TranscodingStreams
+include("PoorGCloudAuth/PoorGCloudAuth.jl")
 
 ######## RemoteResource Interface  #######################
 
@@ -169,5 +170,9 @@ function Base.isopen(x::RemoteResourceIO) isopen(parent(x)) end
 function Base.close(x::RemoteResourceIO) close(parent(x)) end
 
 const HttpFileIO = RemoteResourceIO{HttpResource}
+
+include("gcs.jl")
+
+const GCSIO = RemoteResourceIO{GCSResource}
 
 end
