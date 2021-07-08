@@ -5,6 +5,8 @@ installed and authorized with `gcloud auth login --update-adc` command.
 """
 module PoorGCloudAuth
 
+export GCSClient
+
 import HTTP
 import JSON
 import Dates

@@ -2,6 +2,7 @@ module HttpIO
 
 export HttpFileIO
 export GCSFileIO
+export GCSClient
 
 import HTTP
 import TranscodingStreams
