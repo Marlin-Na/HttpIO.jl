@@ -131,7 +131,7 @@ end
 
 function fetch_object_info(gsurl::AbstractString, access_token::AbstractString)
     (bucket, path) = parse_gsurl(gsurl)
-    path = HTTP.escape(path)
+    path = HTTP.escapeuri(path)
     api = "https://storage.googleapis.com/storage/v1/b/$bucket/o/$path"
     headers = [
         "Authorization" => "Bearer " * access_token
