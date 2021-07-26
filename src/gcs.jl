@@ -16,16 +16,16 @@ end
 
 const GCSFileIO = RemoteResourceIO{GCSResource}
 
-function RemoteResourceIO{GCSResource}(gsurl::AbstractString)
-    RemoteResourceIO(GCSResource(gsurl))
+function RemoteResourceIO{GCSResource}(gsurl::AbstractString; kwargs...)
+    RemoteResourceIO(GCSResource(gsurl); kwargs...)
 end
 
-function RemoteResourceIO{GCSResource}(gsurl::AbstractString, client::GCSClient)
-    RemoteResourceIO(GCSResource(gsurl, client))
+function RemoteResourceIO{GCSResource}(gsurl::AbstractString, client::GCSClient; kwargs...)
+    RemoteResourceIO(GCSResource(gsurl, client); kwargs...)
 end
 
-function RemoteResourceIO{GCSResource}(client::GCSClient)
-    gsurl -> GCSResource(gsurl, client)
+function RemoteResourceIO{GCSResource}(client::GCSClient; kwargs...)
+    gsurl -> GCSResource(gsurl, client; kwargs...)
 end
 
 function GCSResource(gsurl::AbstractString)
@@ -38,9 +38,4 @@ end
 
 function resc_fetch(x::GCSResource, range::UnitRange{<:Integer})
     PoorGCloudAuth.fetch_gcs(x.gsurl, x.client; range = range)
-end
-
-function resc_suggest_bufsize(x::GCSResource)
-    # TODO: benchmark the performance against buffer size
-    Int(1 * 1024 * 1024) # 1 MB
 end

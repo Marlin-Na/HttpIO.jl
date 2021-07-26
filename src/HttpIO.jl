@@ -16,9 +16,9 @@ function resc_length(x::RemoteResource) error("not implemented") end
 
 function resc_fetch(x::RemoteResource, range::UnitRange{<:Integer}) error("not implemented") end
 
-function resc_suggest_bufsize(x::RemoteResource) error("not implemented") end
-
 #### HttpResource
+
+# TODO: benchmark the performance against buffer size
 
 mutable struct HttpResource <: RemoteResource
     url::String
@@ -60,11 +60,6 @@ function resc_fetch(x::HttpResource, range::UnitRange{<:Integer})
     @assert res.status == 206
     @assert HTTP.header(res, "Content-Length") == string(e - s + 1)
     HTTP.body(res)
-end
-
-function resc_suggest_bufsize(x::HttpResource)
-    # TODO: benchmark the performance against buffer size
-    Int(1 * 1024 * 1024) # 1 MB
 end
 
 
@@ -124,10 +119,6 @@ function resc_fetch(x::DummyRemoteResourceIO, range::UnitRange{<:Integer})
     resc_fetch(x.resource, range)
 end
 
-function resc_suggest_bufsize(x::DummyRemoteResourceIO)
-    resc_suggest_bufsize(x.resource)
-end
-
 function TranscodingStreams.readdata!(input::DummyRemoteResourceIO, output::TranscodingStreams.Buffer)
     ntoread::Int = min(TranscodingStreams.marginsize(output), resc_length(input) - position(input))
     ntoread <= 0 && return 0
@@ -147,14 +138,14 @@ end
 mutable struct RemoteResourceIO{T} <: IO
     dummy_io::DummyRemoteResourceIO{T}
     stream::TranscodingStreams.NoopStream{DummyRemoteResourceIO{T}}
-    function RemoteResourceIO(resource::RemoteResource)
+    function RemoteResourceIO(resource::RemoteResource; bufsize=1*1024*1024)
         dummy_io = DummyRemoteResourceIO(resource)
-        stream = TranscodingStreams.TranscodingStream(TranscodingStreams.Noop(), dummy_io; bufsize = resc_suggest_bufsize(dummy_io))
+        stream = TranscodingStreams.TranscodingStream(TranscodingStreams.Noop(), dummy_io; bufsize = bufsize)
         TranscodingStreams.NoopStream(dummy_io)
         new{typeof(resource)}(dummy_io, stream)
     end
-    function RemoteResourceIO{T}(resource::T) where {T}
-        RemoteResourceIO(resource)
+    function RemoteResourceIO{T}(resource::T; kwargs...) where {T}
+        RemoteResourceIO(resource; kwargs...)
     end
 end
 
@@ -177,8 +168,8 @@ function Base.close(x::RemoteResourceIO) close(parent(x)) end
 
 const HttpFileIO = RemoteResourceIO{HttpResource}
 
-function RemoteResourceIO{HttpResource}(url::AbstractString)
-    RemoteResourceIO{HttpResource}(HttpResource(url))
+function RemoteResourceIO{HttpResource}(url::AbstractString; kwargs...)
+    RemoteResourceIO{HttpResource}(HttpResource(url); kwargs...)
 end
 
 include("gcs.jl")
