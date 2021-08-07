@@ -95,7 +95,6 @@ mutable struct RemoteResourceIO{T} <: IO
     function RemoteResourceIO(resource::RemoteResource; bufsize=1*1024*1024)
         dummy_io = DummyRemoteResourceIO(resource)
         stream = TranscodingStreams.TranscodingStream(TranscodingStreams.Noop(), dummy_io; bufsize = bufsize)
-        TranscodingStreams.NoopStream(dummy_io)
         new{typeof(resource)}(dummy_io, stream)
     end
     function RemoteResourceIO{T}(resource::T; kwargs...) where {T}
